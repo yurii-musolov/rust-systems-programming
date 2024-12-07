@@ -24,7 +24,7 @@ fn run_command(command: &str) -> String {
 }
 
 // make this json serializable
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, PartialEq)]
 pub struct Filesystem {
     pub filesystem: String,
     pub size: String,
@@ -69,6 +69,10 @@ pub fn parse_df_output(input: &str) -> Vec<Filesystem> {
         debug!("skipping that is empty");
       continue;
     }
+    let filesystem = parts.next().unwrap().to_string();
+    if !line.starts_with("/"){
+        continue;
+    }
     let mut parts = line.split_whitespace();
     let filesystem = parts.next().unwrap().to_string();
     let size = parts.next().unwrap().to_string();
@@ -96,7 +100,7 @@ pub fn which_executable(command: &str) -> String {
 }
 
 pub fn run_df(path: &str) -> serde_json::Value {
-    let command = "idf";
+    let command = "df";
     let output = run_command(command);
     if output.is_empty() {
         error!("No output from command: {command}");
@@ -113,5 +117,41 @@ pub fn run_df(path: &str) -> serde_json::Value {
                 return serde_json::json!(device);
             }
         }.into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_numbers() {
+        // Arrange
+        let input = r#"
+Filesystem     1K-blocks     Used Available Use% Mounted on
+overlay        123329088 43470228  73551072  38% /
+tmpfs              65536        0     65536   0% /dev
+tmpfs            6134932        0   6134932   0% /sys/fs/cgroup
+shm                65536        0     65536   0% /dev/shm
+/dev/vda1      123329088 43470228  73551072  38% /etc/hosts
+tmpfs            6134932        0   6134932   0% /proc/acpi
+tmpfs            6134932        0   6134932   0% /sys/firmware
+"#;
+        let expected = vec![{
+            Filesystem {
+                filesystem: String::from("/dev/vda1"),
+                size: String::from("123329088"),
+                used: String::from("43470228"),
+                available: String::from("73551072"),
+                use_percent: String::from("38%"),
+                mounted_on: String::from("/etc/hosts"),
+            }
+        }];
+
+        // Action
+        let list = parse_df_output(input);
+
+        // Assert
+        assert_eq!(list, expected);
     }
 }
