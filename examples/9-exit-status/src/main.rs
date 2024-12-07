@@ -7,6 +7,10 @@ use std::os::unix::fs::PermissionsExt;
 // load the regex-fules.json file to provide configs
 const JSON: &str = include_str!("../rules.json");
 
+const EXIT_CODE_OK: i32 = 0;
+const EXIT_CODE_UNEXPECTED_FAILURE: i32 = 1;
+const EXIT_CODE_PERMISSION_ERROR: i32 = 2;
+const EXIT_CODE_MISSING_REQUIRED_FILE: i32 = 3;
 
 #[derive(Deserialize, Debug)]
 struct ComplianceRule {
@@ -42,7 +46,7 @@ fn load_rules() -> Vec<ComplianceRule> {
 
 fn main() {
     let rules = load_rules(); 
-    let mut failed: bool = false;
+    let mut exit_code: i32 = EXIT_CODE_OK;
     for rule in rules {
         let mut seen_files: Vec<String> = Vec::new();
         for entry in glob(&rule.path_regex).expect("Failed to read glob pattern") {
@@ -54,7 +58,7 @@ fn main() {
                     seen_files.push(path.to_str().unwrap().to_string());
                     let metadata = fs::metadata(&path).unwrap();
                     if metadata.permissions().mode() != rule.file_permissions {
-                        failed = true;
+                        exit_code = EXIT_CODE_PERMISSION_ERROR;
                         println!("[FAIL] incorrect permissions: {:?}", path);
                     }
 
@@ -65,13 +69,12 @@ fn main() {
         }
         for file in &rule.required_files {
             if !seen_files.contains(&file) {
-                failed = true;
+                exit_code = EXIT_CODE_MISSING_REQUIRED_FILE;
                 println!("[FAIL] required file {file} not found in {}", rule.path_regex);
             }
         }
         
     }
-    if failed {
-        std::process::exit(2);
-    }
+
+    std::process::exit(exit_code);
 }
