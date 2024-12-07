@@ -10,14 +10,16 @@ struct ComplianceRule {
     path_regex: String,
     file_permissions: u32,
     required_files: Vec<String>,
+    non_existent_files: Vec<String>,
 }
 
 impl ComplianceRule {
-    fn new(path_regex: String, file_permissions: u32, required_files: Vec<String>) -> Self {
+    fn new(path_regex: String, file_permissions: u32, required_files: Vec<String>, non_existent_files: Vec<String>) -> Self {
         Self {
             path_regex,
             file_permissions,
             required_files,
+            non_existent_files,
         }
     }
 }
@@ -26,19 +28,15 @@ impl ComplianceRule {
 fn load_rules() -> Vec<ComplianceRule> {
     let loaded_json: Vec<ComplianceRule> = serde_json::from_str(JSON).unwrap();
 
-    let mut rules: Vec<ComplianceRule> = Vec::new();
-    for rule in loaded_json {
-        rules.push(ComplianceRule::new(
-            rule.path_regex,
-            rule.file_permissions,
-            rule.required_files,
-        ));
-    }
-    rules
+    loaded_json.iter().map(|rule|ComplianceRule::new(
+        rule.path_regex.clone(),
+        rule.file_permissions,
+        rule.required_files.clone(),
+        rule.non_existent_files.clone(),
+    )).collect::<Vec<_>>()
 }
 
 fn main() {
     let rules = load_rules(); 
-    println!("{:#?}", rules)
-
+    println!("{:#?}", rules);
 }
